@@ -13,7 +13,7 @@ namespace WEFreeCamera
     {
         public const string PluginGuid = "GeeEM.WrestlingEmpire.WEFreeCamera";
         public const string PluginName = "WEFreeCamera";
-        public const string PluginVer = "1.0.0";
+        public const string PluginVer = "1.0.1";
 
         internal static ManualLogSource Log;
         internal readonly static Harmony Harmony = new(PluginGuid);
@@ -136,6 +136,7 @@ namespace WEFreeCamera
             ourCamera.gameObject.SetActive(true);
             ourCamera.enabled = true;
             currentMain.GetComponent<AudioListener>().enabled = false;
+            currentMain.GetComponent<Camera>().enabled = false;
         }
         internal static void EndFreecam()
         {
@@ -149,6 +150,8 @@ namespace WEFreeCamera
                 GameObject.Destroy(freeCamScript);
                 freeCamScript = null;
             }
+            currentMain.GetComponent<AudioListener>().enabled = true;
+            currentMain.GetComponent<Camera>().enabled = true;
         }
 
         private void Update()
