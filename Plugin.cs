@@ -4,7 +4,7 @@ using HarmonyLib;
 using System.IO;
 using UnityEngine;
 using BepInEx.Configuration;
-//TODO fix scene transitions; controller display when character is not visible on main
+using System.Collections.Generic;
 namespace WEFreeCamera
 {
     [BepInPlugin(PluginGuid, PluginName, PluginVer)]
@@ -13,7 +13,7 @@ namespace WEFreeCamera
     {
         public const string PluginGuid = "GeeEM.WrestlingEmpire.WEFreeCamera";
         public const string PluginName = "WEFreeCamera";
-        public const string PluginVer = "1.0.1";
+        public const string PluginVer = "1.1.0";
 
         internal static ManualLogSource Log;
         internal readonly static Harmony Harmony = new(PluginGuid);
@@ -23,6 +23,8 @@ namespace WEFreeCamera
         internal static bool cameraLocked = false;
         internal static Camera ourCamera;
         internal static Camera currentMain;
+        internal static Camera CAC = null;
+        internal static List<MonoBehaviour> CACBehaviours = new List<MonoBehaviour>();
         internal static Vector3? currentUserCameraPosition;
         internal static Quaternion? currentUserCameraRotation;
         public static ConfigEntry<double> configCameraMoveSpeed;
@@ -96,7 +98,7 @@ namespace WEFreeCamera
             Harmony.UnpatchSelf();
             Logger.LogInfo($"Unloaded {PluginName}!");
         }
-        static void BeginFreecam()
+        internal static void BeginFreecam()
         {
             inFreeCamMode = true;
 
@@ -120,11 +122,32 @@ namespace WEFreeCamera
         {
             if (!ourCamera)
             {
-                ourCamera = new GameObject("Freecam").AddComponent<Camera>();
-                ourCamera.gameObject.AddComponent<AudioListener>();
-                ourCamera.gameObject.tag = "MainCamera";
-                GameObject.DontDestroyOnLoad(ourCamera.gameObject);
-                ourCamera.gameObject.hideFlags = HideFlags.HideAndDontSave;
+                GameObject cam = GameObject.Find("CustomArenaCamera");
+                if (!cam)
+                {
+                    ourCamera = new GameObject("Freecam").AddComponent<Camera>();
+                    ourCamera.gameObject.AddComponent<AudioListener>();
+                    ourCamera.gameObject.tag = "MainCamera";
+                    GameObject.DontDestroyOnLoad(ourCamera.gameObject);
+                    ourCamera.gameObject.hideFlags = HideFlags.HideAndDontSave;
+                }
+                else
+                {
+                    CAC = cam.GetComponent<Camera>();
+                    ourCamera = Instantiate(CAC);
+                    ourCamera.gameObject.name = "Freecam";
+                    foreach (MonoBehaviour comp in CAC.GetComponents<MonoBehaviour>())
+                    {
+                        if (comp.enabled)
+                        {
+                            CACBehaviours.Add(comp);
+                            comp.enabled = false;
+                        }
+                        CAC.enabled = false;
+                    }
+                    GameObject.DontDestroyOnLoad(ourCamera.gameObject);
+                    ourCamera.gameObject.hideFlags = HideFlags.HideAndDontSave;
+                }
             }
 
             if (!freeCamScript)
@@ -143,15 +166,29 @@ namespace WEFreeCamera
             inFreeCamMode = false;
 
             if (ourCamera)
-                ourCamera.gameObject.SetActive(false);
-
+            {
+                GameObject.Destroy(ourCamera.gameObject);
+                ourCamera = null;
+            }
             if (freeCamScript)
             {
                 GameObject.Destroy(freeCamScript);
                 freeCamScript = null;
             }
-            currentMain.GetComponent<AudioListener>().enabled = true;
-            currentMain.GetComponent<Camera>().enabled = true;
+            if (CAC)
+            {
+                CAC.enabled = true;
+                foreach(MonoBehaviour comp in CACBehaviours)
+                {
+                    comp.enabled = true;
+                }
+            }
+            CACBehaviours.Clear();
+            if (currentMain)
+            {
+                currentMain.GetComponent<AudioListener>().enabled = true;
+                currentMain.GetComponent<Camera>().enabled = true;
+            }
         }
 
         private void Update()
@@ -163,6 +200,21 @@ namespace WEFreeCamera
             else if (Input.GetKeyDown(configToggle.Value) && inFreeCamMode == true)
             {
                 EndFreecam();
+            }
+        }
+
+    }
+    //Disabling the camera during scene switch
+    [HarmonyPatch(typeof(LAHGBLEJCEO))]
+    public static class LAHGBLEJCEO_Patch
+    {
+        [HarmonyPrefix]
+        [HarmonyPatch(nameof(LAHGBLEJCEO.KLNDLKEPNEF))]
+        public static void Prefix()
+        {
+            if (CustomCameraPlugin.inFreeCamMode)
+            {
+                CustomCameraPlugin.EndFreecam();
             }
         }
     }
