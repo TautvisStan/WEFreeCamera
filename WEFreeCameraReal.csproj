@@ -16,6 +16,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <Compile Remove="CameraTracking.cs" />
       <Compile Remove="Class1.cs" />
     </ItemGroup>
 
@@ -31,7 +32,7 @@
 
     <ItemGroup>
       <Reference Include="Assembly-CSharp">
-        <HintPath>..\..\Wrestling.Empire.v1.55\Wrestling.Empire.v1.56\Wrestling.Empire.v1.56\Wrestling Empire_Data\Managed\Assembly-CSharp.dll</HintPath>
+        <HintPath>..\..\Assembly-CSharp_public.dll</HintPath>
       </Reference>
     </ItemGroup>
 

@@ -1,3 +1,8 @@
+//TODO: match setup free cam; keybinds q[];
+
+
+
+
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
@@ -9,11 +14,11 @@ namespace WEFreeCamera
 {
     [BepInPlugin(PluginGuid, PluginName, PluginVer)]
     [HarmonyPatch]
-    public class CustomCameraPlugin : BaseUnityPlugin
+    public class FreeCameraPlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "GeeEM.WrestlingEmpire.WEFreeCamera";
         public const string PluginName = "WEFreeCamera";
-        public const string PluginVer = "1.1.0";
+        public const string PluginVer = "1.2.0";
 
         internal static ManualLogSource Log;
         internal readonly static Harmony Harmony = new(PluginGuid);
@@ -24,6 +29,7 @@ namespace WEFreeCamera
         internal static Camera ourCamera;
         internal static Camera currentMain;
         internal static Camera CAC = null;
+        public static GameObject trackingAction = null;
         internal static List<MonoBehaviour> CACBehaviours = new List<MonoBehaviour>();
         internal static Vector3? currentUserCameraPosition;
         internal static Quaternion? currentUserCameraRotation;
@@ -39,10 +45,13 @@ namespace WEFreeCamera
         public static ConfigEntry<KeyCode> configBackwards;
         public static ConfigEntry<KeyCode> configUp;
         public static ConfigEntry<KeyCode> configDown;
+        public static ConfigEntry<Vector3>[] savedPositions = new ConfigEntry<Vector3>[10];
+        public static ConfigEntry<Quaternion>[] savedRotations = new ConfigEntry<Quaternion>[10];
+        public static ConfigEntry<float>[] savedFoVs = new ConfigEntry<float>[10];
 
         private void Awake()
         {
-            CustomCameraPlugin.Log = base.Logger;
+            FreeCameraPlugin.Log = base.Logger;
             PluginPath = Path.GetDirectoryName(Info.Location);
             configCameraMoveSpeed = Config.Bind("Camera",
                  "CameraSpeed",
@@ -56,20 +65,20 @@ namespace WEFreeCamera
                  "CameraLock",
                  KeyCode.L,
                  "Lock the free camera in place");
-            configSpeed = Config.Bind("Controls",  
-                 "SuperSpeed", 
-                 KeyCode.RightShift, 
+            configSpeed = Config.Bind("Controls",
+                 "SuperSpeed",
+                 KeyCode.RightShift,
                  "Super speed");
-            configLeft = Config.Bind("Controls",     
-                 "MoveLeft", 
-                 KeyCode.LeftArrow, 
-                 "Move left"); 
+            configLeft = Config.Bind("Controls",
+                 "MoveLeft",
+                 KeyCode.LeftArrow,
+                 "Move left");
             configRight = Config.Bind("Controls",
-                 "MoveRight", 
+                 "MoveRight",
                  KeyCode.RightArrow,
                  "Move Right");
             configForwards = Config.Bind("Controls",
-                 "MoveForwards",  
+                 "MoveForwards",
                  KeyCode.UpArrow,
                  "Move forwards");
             configBackwards = Config.Bind("Controls",
@@ -84,7 +93,29 @@ namespace WEFreeCamera
                  "MoveDown",
                  KeyCode.LeftControl,
                  "Move down");
-
+            SetPositions();
+            Config.SaveOnConfigSet = true;
+        }
+        private void SetPositions()
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                savedPositions[i] = Config.Bind("Positions", "Position" + i, new Vector3(), "Position " + i);
+                savedRotations[i] = Config.Bind("Positions", "Rotation" + i, new Quaternion(), "Rotation " + i);
+                savedFoVs[i] = Config.Bind("Positions", "FoV" + i, 50f, "FoV " + i);
+            }
+        }
+        public static void SavePosition(int num, Vector3 pos, Quaternion rot, float fov)
+        {
+            savedPositions[num].Value = pos;
+            savedRotations[num].Value = rot;
+            savedFoVs[num].Value = fov;
+        }
+        public static void LoadPosition(int num, out Vector3 pos, out Quaternion rot, out float fov)
+        {
+            pos = savedPositions[num].Value;
+            rot = savedRotations[num].Value;
+            fov = savedFoVs[num].Value;
         }
 
         private void OnEnable()
@@ -98,7 +129,7 @@ namespace WEFreeCamera
             Harmony.UnpatchSelf();
             Logger.LogInfo($"Unloaded {PluginName}!");
         }
-        internal static void BeginFreecam()
+        internal void BeginFreecam()
         {
             inFreeCamMode = true;
 
@@ -118,21 +149,23 @@ namespace WEFreeCamera
                 }
             }
         }
-        static void SetupFreeCamera()
+        void SetupFreeCamera()
         {
             if (!ourCamera)
             {
                 GameObject cam = GameObject.Find("CustomArenaCamera");
                 if (!cam)
                 {
-                    ourCamera = new GameObject("Freecam").AddComponent<Camera>();
-                    ourCamera.gameObject.AddComponent<AudioListener>();
+
+                    ourCamera = Instantiate(currentMain);
+                    ourCamera.name = "Freecam";
                     ourCamera.gameObject.tag = "MainCamera";
                     GameObject.DontDestroyOnLoad(ourCamera.gameObject);
                     ourCamera.gameObject.hideFlags = HideFlags.HideAndDontSave;
                 }
                 else
                 {
+                    cam.name = "CAC";
                     CAC = cam.GetComponent<Camera>();
                     ourCamera = Instantiate(CAC);
                     ourCamera.gameObject.name = "Freecam";
@@ -151,7 +184,10 @@ namespace WEFreeCamera
             }
 
             if (!freeCamScript)
+            {
                 freeCamScript = ourCamera.gameObject.AddComponent<CustomCamera>();
+            }
+
 
             ourCamera.transform.position = (Vector3)currentUserCameraPosition;
             ourCamera.transform.rotation = (Quaternion)currentUserCameraRotation;
@@ -164,6 +200,7 @@ namespace WEFreeCamera
         internal static void EndFreecam()
         {
             inFreeCamMode = false;
+            trackingAction = null;
 
             if (ourCamera)
             {
@@ -177,8 +214,9 @@ namespace WEFreeCamera
             }
             if (CAC)
             {
+                CAC.gameObject.name = "CustomArenaCamera";
                 CAC.enabled = true;
-                foreach(MonoBehaviour comp in CACBehaviours)
+                foreach (MonoBehaviour comp in CACBehaviours)
                 {
                     comp.enabled = true;
                 }
@@ -193,8 +231,20 @@ namespace WEFreeCamera
 
         private void Update()
         {
+            if (Input.GetKeyDown(KeyCode.Q))
+            {
+                if (!trackingAction)
+                {
+                    trackingAction = GameObject.Find("Camera Focal Point");
+                }
+                else
+                {
+                    trackingAction = null;
+                }
+            }
             if (Input.GetKeyDown(configToggle.Value) && inFreeCamMode == false)
             {
+                
                 BeginFreecam();
             }
             else if (Input.GetKeyDown(configToggle.Value) && inFreeCamMode == true)
@@ -212,9 +262,9 @@ namespace WEFreeCamera
         [HarmonyPatch(nameof(LAHGBLEJCEO.KLNDLKEPNEF))]
         public static void Prefix()
         {
-            if (CustomCameraPlugin.inFreeCamMode)
+            if (FreeCameraPlugin.inFreeCamMode)
             {
-                CustomCameraPlugin.EndFreecam();
+                FreeCameraPlugin.EndFreecam();
             }
         }
     }
@@ -225,139 +275,103 @@ namespace WEFreeCamera
         [HarmonyPrefix]
         public static bool Prefix(FMOKFGNFBEL __instance, ref float __result)
         {
-            if (!CustomCameraPlugin.inFreeCamMode)
+            if (!FreeCameraPlugin.inFreeCamMode)
                 return true;
             else
             {
-                __result = CustomCameraPlugin.ourCamera.transform.eulerAngles.y + Mathf.Atan2(__instance.OIDEGGMJJPP, __instance.BHNNEGFENKO) * 57.29578f;
-                return false;
-            }
-        }
-    }
-    //Patching label rotation
-    [HarmonyPatch(typeof(CBGJILJIJIB), nameof(CBGJILJIJIB.JIKCOKCCPBE))]
-    public static class CBGJILJIJIB_Patch
-    {
-        [HarmonyPrefix]
-        public static bool Prefix(GameObject HJGHHNAKAPD)
-        {
-            if (!CustomCameraPlugin.inFreeCamMode)
-                return true;
-            else
-            {
-                Quaternion rotation = CustomCameraPlugin.ourCamera.transform.rotation;
-                HJGHHNAKAPD.transform.LookAt(HJGHHNAKAPD.transform.position + rotation * Vector3.forward, rotation * Vector3.up);
-                return false;
-            }
-        }
-    }
-    //Patching UI elements display 
-    [HarmonyPatch(typeof(OEKDDHPAEIF))]
-    public static class OEKDDHPAEIF_Patch
-    {
-        [HarmonyPatch(nameof(OEKDDHPAEIF.CHDIFHAKFLC))]
-        [HarmonyPrefix]
-        // Token: 0x060001AF RID: 431 RVA: 0x0009EB9C File Offset: 0x0009CD9C
-        public static bool CHDIFHAKFLC(int DLMFHPGACEP, OEKDDHPAEIF __instance, ref float __result)
-        {
-            if (!CustomCameraPlugin.inFreeCamMode)
-                return true;
-            else
-            {
-                __result = 0f;
-                if (__instance.PNINKKAAPBD[DLMFHPGACEP] != null)
-                {
-                    __result = CustomCameraPlugin.ourCamera.WorldToScreenPoint(__instance.PNINKKAAPBD[DLMFHPGACEP].transform.position).x;
-                }
-                
-                return false;
-            }
-        }
-        [HarmonyPatch(nameof(OEKDDHPAEIF.OHLBJLHHIHD))]
-        [HarmonyPrefix]
-        // Token: 0x060001B0 RID: 432 RVA: 0x0009EBD5 File Offset: 0x0009CDD5
-        public static bool OHLBJLHHIHD(int DLMFHPGACEP, OEKDDHPAEIF __instance, ref float __result)
-        {
-            if (!CustomCameraPlugin.inFreeCamMode)
-                return true;
-            else
-            {
-                __result = 0f;
-                if (__instance.PNINKKAAPBD[DLMFHPGACEP] != null)
-                {
-                    __result = CustomCameraPlugin.ourCamera.WorldToScreenPoint(__instance.PNINKKAAPBD[DLMFHPGACEP].transform.position).y;
-                }
-                
-                return false;
-            }
-        }
-        [HarmonyPatch(nameof(OEKDDHPAEIF.BGMAJCJLLPN))]
-        [HarmonyPrefix]
-        // Token: 0x060001B1 RID: 433 RVA: 0x0009EC0E File Offset: 0x0009CE0E
-        public static bool BGMAJCJLLPN(int DLMFHPGACEP, OEKDDHPAEIF __instance, ref float __result)
-        {
-            if (!CustomCameraPlugin.inFreeCamMode)
-                return true;
-            else
-            {
-                __result = 0f;
-                if (__instance.PNINKKAAPBD[DLMFHPGACEP] != null)
-                {
-                    __result = CustomCameraPlugin.ourCamera.WorldToScreenPoint(__instance.PNINKKAAPBD[DLMFHPGACEP].transform.position).z;
-                }
-                
+                __result = FreeCameraPlugin.ourCamera.transform.eulerAngles.y + Mathf.Atan2(__instance.OIDEGGMJJPP, __instance.BHNNEGFENKO) * 57.29578f;
                 return false;
             }
         }
     }
     public class CustomCamera : MonoBehaviour
     {
+        public Camera camera;
+        private void Start()
+        {
+            camera = this.GetComponent<Camera>();
+        }
+
         internal void Update()
         {
-            if (CustomCameraPlugin.inFreeCamMode)
+            if (FreeCameraPlugin.inFreeCamMode)
             {
-                Transform transform = this.transform;
+                HandlePositionSaveLoad();
+                
 
-                CustomCameraPlugin.currentUserCameraPosition = transform.position;
-                CustomCameraPlugin.currentUserCameraRotation = transform.rotation;
-                if(Input.GetKeyDown(CustomCameraPlugin.configLock.Value))
+                FreeCameraPlugin.currentUserCameraPosition = transform.position;
+                FreeCameraPlugin.currentUserCameraRotation = transform.rotation;
+                if (Input.GetKey(KeyCode.LeftBracket))
                 {
-                    CustomCameraPlugin.cameraLocked = !CustomCameraPlugin.cameraLocked;
+                    camera.fieldOfView += 0.5f;
                 }
-                if (!CustomCameraPlugin.cameraLocked)
+                if (Input.GetKey(KeyCode.RightBracket))
                 {
-                    float moveSpeed = (float)CustomCameraPlugin.configCameraMoveSpeed.Value * Time.deltaTime;
-                    if (Input.GetKey(CustomCameraPlugin.configSpeed.Value))
+                    camera.fieldOfView -= 0.5f;
+                }
+                if (Input.GetKeyDown(FreeCameraPlugin.configLock.Value))
+                {
+                    FreeCameraPlugin.cameraLocked = !FreeCameraPlugin.cameraLocked;
+                }
+                if (FreeCameraPlugin.trackingAction)
+                {
+                    transform.LookAt(FreeCameraPlugin.trackingAction.transform);
+                }
+                if (!FreeCameraPlugin.cameraLocked)
+                {
+                    float moveSpeed = (float)FreeCameraPlugin.configCameraMoveSpeed.Value * Time.deltaTime;
+                    if (Input.GetKey(FreeCameraPlugin.configSpeed.Value))
                         moveSpeed *= 10f;
 
-                    if (Input.GetKey(CustomCameraPlugin.configLeft.Value))
+                    if (Input.GetKey(FreeCameraPlugin.configLeft.Value))
                         transform.position += transform.right * -1 * moveSpeed;
 
-                    if (Input.GetKey(CustomCameraPlugin.configRight.Value))
+                    if (Input.GetKey(FreeCameraPlugin.configRight.Value))
                         transform.position += transform.right * moveSpeed;
 
-                    if (Input.GetKey(CustomCameraPlugin.configForwards.Value))
+                    if (Input.GetKey(FreeCameraPlugin.configForwards.Value))
                         transform.position += transform.forward * moveSpeed;
 
-                    if (Input.GetKey(CustomCameraPlugin.configBackwards.Value))
+                    if (Input.GetKey(FreeCameraPlugin.configBackwards.Value))
                         transform.position += transform.forward * -1 * moveSpeed;
 
-                    if (Input.GetKey(CustomCameraPlugin.configUp.Value))
+                    if (Input.GetKey(FreeCameraPlugin.configUp.Value))
                         transform.position += transform.up * moveSpeed;
 
-                    if (Input.GetKey(CustomCameraPlugin.configDown.Value))
+                    if (Input.GetKey(FreeCameraPlugin.configDown.Value))
                         transform.position += transform.up * -1 * moveSpeed;
 
                     if (Input.GetMouseButton(1))
                     {
-                        Vector3 mouseDelta = Input.mousePosition - CustomCameraPlugin.previousMousePosition;
+                        Vector3 mouseDelta = Input.mousePosition - FreeCameraPlugin.previousMousePosition;
 
                         float newRotationX = transform.localEulerAngles.y + mouseDelta.x * 0.3f;
                         float newRotationY = transform.localEulerAngles.x - mouseDelta.y * 0.3f;
                         transform.localEulerAngles = new Vector3(newRotationY, newRotationX, 0f);
                     }
 
-                    CustomCameraPlugin.previousMousePosition = Input.mousePosition;
+                    FreeCameraPlugin.previousMousePosition = Input.mousePosition;
+                }
+            }
+        }
+        private void HandlePositionSaveLoad()
+        {
+            Vector3 pos;
+            Quaternion rot;
+            float fov;
+            for (int i = 0; i < 10; i++)
+            {
+                KeyCode keyCode = (KeyCode)System.Enum.Parse(typeof(KeyCode), "Alpha" + i);
+                if (Input.GetKey(keyCode) && Input.GetKey(KeyCode.BackQuote))
+                {
+                    FreeCameraPlugin.SavePosition(i, transform.position, transform.rotation, camera.fieldOfView);
+                }
+                else if(Input.GetKey(keyCode))
+                {
+                    FreeCameraPlugin.LoadPosition(i, out pos, out rot, out fov);
+                    transform.position = pos;
+                    transform.rotation = rot;
+                    camera.fieldOfView = fov;
                 }
             }
         }
