@@ -2,7 +2,7 @@
   "namespace": "GeeEm",
   "name": "WEFreeCamera",
   "description": "Free camera mod for Wrestling Empire",
-  "version_number": "1.1.0",
+  "version_number": "1.2.0",
   "dependencies": [
     "BepInEx-BepInExPack-5.4.2100"
   ],

@@ -1,7 +1,4 @@
-//TODO: match setup free cam; keybinds q[];
-
-
-
+//TODO: match setup free cam; different movement mode
 
 using BepInEx;
 using BepInEx.Logging;
@@ -45,6 +42,9 @@ namespace WEFreeCamera
         public static ConfigEntry<KeyCode> configBackwards;
         public static ConfigEntry<KeyCode> configUp;
         public static ConfigEntry<KeyCode> configDown;
+        public static ConfigEntry<KeyCode> configTargeting;
+        public static ConfigEntry<KeyCode> configIncreaseFoV;
+        public static ConfigEntry<KeyCode> configDecreaseFoV;
         public static ConfigEntry<Vector3>[] savedPositions = new ConfigEntry<Vector3>[10];
         public static ConfigEntry<Quaternion>[] savedRotations = new ConfigEntry<Quaternion>[10];
         public static ConfigEntry<float>[] savedFoVs = new ConfigEntry<float>[10];
@@ -93,6 +93,18 @@ namespace WEFreeCamera
                  "MoveDown",
                  KeyCode.LeftControl,
                  "Move down");
+            configTargeting = Config.Bind("Controls",
+                 "TargetingMode",
+                 KeyCode.Q,
+                 "Sets the camera to target the game action. May not work if the main game camera is set to first person");
+            configIncreaseFoV = Config.Bind("Controls",
+                 "IncreaseFoV",
+                 KeyCode.LeftBracket,
+                 "Increases the free camera field of view");
+            configDecreaseFoV = Config.Bind("Controls",
+                 "DecreaseFoV",
+                 KeyCode.RightBracket,
+                 "Decreases the free camera field of view");
             SetPositions();
             Config.SaveOnConfigSet = true;
         }
@@ -231,7 +243,7 @@ namespace WEFreeCamera
 
         private void Update()
         {
-            if (Input.GetKeyDown(KeyCode.Q))
+            if (Input.GetKeyDown(configTargeting.Value))
             {
                 if (!trackingAction)
                 {
@@ -301,11 +313,11 @@ namespace WEFreeCamera
 
                 FreeCameraPlugin.currentUserCameraPosition = transform.position;
                 FreeCameraPlugin.currentUserCameraRotation = transform.rotation;
-                if (Input.GetKey(KeyCode.LeftBracket))
+                if (Input.GetKey(FreeCameraPlugin.configIncreaseFoV.Value))
                 {
                     camera.fieldOfView += 0.5f;
                 }
-                if (Input.GetKey(KeyCode.RightBracket))
+                if (Input.GetKey(FreeCameraPlugin.configDecreaseFoV.Value))
                 {
                     camera.fieldOfView -= 0.5f;
                 }
