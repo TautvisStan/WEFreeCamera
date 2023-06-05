@@ -1,3 +1,9 @@
+# WE 1.58
+# 1.3.0
+No longer snaps back in the match setup
+Added a different camera movement mode
+# 1.2.1
+Updated for the game version 1.58
 # WE 1.56
 ## 1.2.0
 Improved compatibility with the Custom Arena Camera Mod

@@ -20,5 +20,6 @@ Pressing the `~` button and a number at the top of the keyboard at the same time
 - Q - toggle the action targeting mode.
 - [ - increase the camera field of view.
 - ] - decrease the camera field of view.
+- I - changes the camera movement mode.
 
 Default move speed and controls can be customized in the mod config.

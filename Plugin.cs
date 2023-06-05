@@ -1,5 +1,4 @@
-//TODO: match setup free cam; different movement mode
-
+//Game version: 1.58
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
@@ -7,6 +6,7 @@ using System.IO;
 using UnityEngine;
 using BepInEx.Configuration;
 using System.Collections.Generic;
+
 namespace WEFreeCamera
 {
     [BepInPlugin(PluginGuid, PluginName, PluginVer)]
@@ -15,7 +15,7 @@ namespace WEFreeCamera
     {
         public const string PluginGuid = "GeeEM.WrestlingEmpire.WEFreeCamera";
         public const string PluginName = "WEFreeCamera";
-        public const string PluginVer = "1.2.0";
+        public const string PluginVer = "1.3.0";
 
         internal static ManualLogSource Log;
         internal readonly static Harmony Harmony = new(PluginGuid);
@@ -33,9 +33,12 @@ namespace WEFreeCamera
         public static ConfigEntry<double> configCameraMoveSpeed;
         internal static Vector3 previousMousePosition;
         internal static CustomCamera freeCamScript;
+        public static List<string> movementModes = new List<string>() { "Relative", "Static" };
+        public static int currentMode = 0;
         public static ConfigEntry<KeyCode> configToggle;
         public static ConfigEntry<KeyCode> configLock;
         public static ConfigEntry<KeyCode> configSpeed;
+        public static ConfigEntry<KeyCode> configMode;
         public static ConfigEntry<KeyCode> configLeft;
         public static ConfigEntry<KeyCode> configRight;
         public static ConfigEntry<KeyCode> configForwards;
@@ -69,6 +72,10 @@ namespace WEFreeCamera
                  "SuperSpeed",
                  KeyCode.RightShift,
                  "Super speed");
+            configMode = Config.Bind("Controls",
+                 "MovementMode",
+                 KeyCode.I,
+                 "Toggle between camera movement modes");
             configLeft = Config.Bind("Controls",
                  "MoveLeft",
                  KeyCode.LeftArrow,
@@ -243,6 +250,12 @@ namespace WEFreeCamera
 
         private void Update()
         {
+            if(Input.GetKeyDown(configMode.Value))
+            {
+                currentMode++;
+                if (currentMode == movementModes.Count)
+                    currentMode = 0;
+            }
             if (Input.GetKeyDown(configTargeting.Value))
             {
                 if (!trackingAction)
@@ -256,7 +269,6 @@ namespace WEFreeCamera
             }
             if (Input.GetKeyDown(configToggle.Value) && inFreeCamMode == false)
             {
-                
                 BeginFreecam();
             }
             else if (Input.GetKeyDown(configToggle.Value) && inFreeCamMode == true)
@@ -267,11 +279,11 @@ namespace WEFreeCamera
 
     }
     //Disabling the camera during scene switch
-    [HarmonyPatch(typeof(LAHGBLEJCEO))]
-    public static class LAHGBLEJCEO_Patch
+    [HarmonyPatch(typeof(DNDIEGNJOKN))]
+    public static class DNDIEGNJOKN_Patch
     {
         [HarmonyPrefix]
-        [HarmonyPatch(nameof(LAHGBLEJCEO.KLNDLKEPNEF))]
+        [HarmonyPatch(nameof(DNDIEGNJOKN.KGAMHBKDPCB))]
         public static void Prefix()
         {
             if (FreeCameraPlugin.inFreeCamMode)
@@ -281,18 +293,32 @@ namespace WEFreeCamera
         }
     }
     //Patching character movement controls
-    [HarmonyPatch(typeof(FMOKFGNFBEL), nameof(FMOKFGNFBEL.LCPJNDDEDOP))]
-    public static class FMOKFGNFBEL_Patch
+    [HarmonyPatch(typeof(KDOHFMKNHOB), nameof(KDOHFMKNHOB.CLPAMGDJAKN))]
+    public static class KDOHFMKNHOB_Patch
     {
         [HarmonyPrefix]
-        public static bool Prefix(FMOKFGNFBEL __instance, ref float __result)
+        public static bool Prefix(KDOHFMKNHOB __instance, ref float __result)
         {
             if (!FreeCameraPlugin.inFreeCamMode)
                 return true;
             else
             {
-                __result = FreeCameraPlugin.ourCamera.transform.eulerAngles.y + Mathf.Atan2(__instance.OIDEGGMJJPP, __instance.BHNNEGFENKO) * 57.29578f;
+                __result = FreeCameraPlugin.ourCamera.transform.eulerAngles.y + Mathf.Atan2(__instance.IKGCLCIAOOL, __instance.ONCJKLOEGEF) * 57.29578f;
                 return false;
+            }
+        }
+    }
+    //Patching match setup
+    [HarmonyPatch(typeof(Scene_Match_Setup), nameof(Scene_Match_Setup.AdjustCamera))]
+    public static class Scene_Match_Setup_Patch
+    {
+        [HarmonyPostfix]
+        public static void Postfix()
+        {
+            if (FreeCameraPlugin.inFreeCamMode)
+            {
+                FreeCameraPlugin.ourCamera.transform.position = (Vector3)FreeCameraPlugin.currentUserCameraPosition;
+                FreeCameraPlugin.ourCamera.transform.rotation = (Quaternion)FreeCameraPlugin.currentUserCameraRotation;
             }
         }
     }
@@ -309,10 +335,6 @@ namespace WEFreeCamera
             if (FreeCameraPlugin.inFreeCamMode)
             {
                 HandlePositionSaveLoad();
-                
-
-                FreeCameraPlugin.currentUserCameraPosition = transform.position;
-                FreeCameraPlugin.currentUserCameraRotation = transform.rotation;
                 if (Input.GetKey(FreeCameraPlugin.configIncreaseFoV.Value))
                 {
                     camera.fieldOfView += 0.5f;
@@ -334,25 +356,16 @@ namespace WEFreeCamera
                     float moveSpeed = (float)FreeCameraPlugin.configCameraMoveSpeed.Value * Time.deltaTime;
                     if (Input.GetKey(FreeCameraPlugin.configSpeed.Value))
                         moveSpeed *= 10f;
-
-                    if (Input.GetKey(FreeCameraPlugin.configLeft.Value))
-                        transform.position += transform.right * -1 * moveSpeed;
-
-                    if (Input.GetKey(FreeCameraPlugin.configRight.Value))
-                        transform.position += transform.right * moveSpeed;
-
-                    if (Input.GetKey(FreeCameraPlugin.configForwards.Value))
-                        transform.position += transform.forward * moveSpeed;
-
-                    if (Input.GetKey(FreeCameraPlugin.configBackwards.Value))
-                        transform.position += transform.forward * -1 * moveSpeed;
-
-                    if (Input.GetKey(FreeCameraPlugin.configUp.Value))
-                        transform.position += transform.up * moveSpeed;
-
-                    if (Input.GetKey(FreeCameraPlugin.configDown.Value))
-                        transform.position += transform.up * -1 * moveSpeed;
-
+                    switch (FreeCameraPlugin.movementModes[FreeCameraPlugin.currentMode])
+                    {
+                        case "Relative":
+                            HandleMovementModeRelative(moveSpeed);
+                            break;
+                        case "Static":
+                            HandleMovementModeStatic(moveSpeed);
+                            break;
+                    }
+                    FreeCameraPlugin.currentUserCameraPosition = transform.position;
                     if (Input.GetMouseButton(1))
                     {
                         Vector3 mouseDelta = Input.mousePosition - FreeCameraPlugin.previousMousePosition;
@@ -360,10 +373,76 @@ namespace WEFreeCamera
                         float newRotationX = transform.localEulerAngles.y + mouseDelta.x * 0.3f;
                         float newRotationY = transform.localEulerAngles.x - mouseDelta.y * 0.3f;
                         transform.localEulerAngles = new Vector3(newRotationY, newRotationX, 0f);
+
+                        FreeCameraPlugin.currentUserCameraRotation = transform.rotation;
                     }
 
                     FreeCameraPlugin.previousMousePosition = Input.mousePosition;
                 }
+            }
+        }
+        private void HandleMovementModeStatic(float moveSpeed)
+        {
+            if (Input.GetKey(FreeCameraPlugin.configLeft.Value))
+            {
+                transform.position += transform.right * -1 * moveSpeed;
+            }
+
+            if (Input.GetKey(FreeCameraPlugin.configRight.Value))
+            {
+                transform.position += transform.right * moveSpeed;
+            }
+
+            if (Input.GetKey(FreeCameraPlugin.configForwards.Value))
+            {
+                transform.position += Vector3.Normalize(new Vector3(transform.forward.x, 0, transform.forward.z)) * moveSpeed;
+            }
+
+            if (Input.GetKey(FreeCameraPlugin.configBackwards.Value))
+            {
+                transform.position += Vector3.Normalize(new Vector3(transform.forward.x, 0, transform.forward.z)) * -1 * moveSpeed;
+            }
+
+            if (Input.GetKey(FreeCameraPlugin.configUp.Value))
+            {
+                transform.position += Vector3.Normalize(new Vector3(0, 1, 0)) * moveSpeed;
+            }
+
+            if (Input.GetKey(FreeCameraPlugin.configDown.Value))
+            {
+                transform.position += Vector3.Normalize(new Vector3(0, 1, 0)) * -1 * moveSpeed;
+            }
+        }
+        private void HandleMovementModeRelative(float moveSpeed)
+        {
+            if (Input.GetKey(FreeCameraPlugin.configLeft.Value))
+            {
+                transform.position += transform.right * -1 * moveSpeed;
+            }
+
+            if (Input.GetKey(FreeCameraPlugin.configRight.Value))
+            {
+                transform.position += transform.right * moveSpeed;
+            }
+
+            if (Input.GetKey(FreeCameraPlugin.configForwards.Value))
+            {
+                transform.position += transform.forward * moveSpeed;
+            }
+
+            if (Input.GetKey(FreeCameraPlugin.configBackwards.Value))
+            {
+                transform.position += transform.forward * -1 * moveSpeed;
+            }
+
+            if (Input.GetKey(FreeCameraPlugin.configUp.Value))
+            {
+                transform.position += transform.up * moveSpeed;
+            }
+
+            if (Input.GetKey(FreeCameraPlugin.configDown.Value))
+            {
+                transform.position += transform.up * -1 * moveSpeed;
             }
         }
         private void HandlePositionSaveLoad()
@@ -384,6 +463,8 @@ namespace WEFreeCamera
                     transform.position = pos;
                     transform.rotation = rot;
                     camera.fieldOfView = fov;
+                    FreeCameraPlugin.currentUserCameraPosition = transform.position;
+                    FreeCameraPlugin.currentUserCameraRotation = transform.rotation;
                 }
             }
         }
