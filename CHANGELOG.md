@@ -1,3 +1,6 @@
+# WE 1.59
+# 1.3.1
+Updated for the game version 1.59
 # WE 1.58
 # 1.3.0
 No longer snaps back in the match setup

@@ -1,4 +1,4 @@
-//Game version: 1.58
+//Game version: 1.59
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
@@ -15,7 +15,7 @@ namespace WEFreeCamera
     {
         public const string PluginGuid = "GeeEM.WrestlingEmpire.WEFreeCamera";
         public const string PluginName = "WEFreeCamera";
-        public const string PluginVer = "1.3.0";
+        public const string PluginVer = "1.3.1";
 
         internal static ManualLogSource Log;
         internal readonly static Harmony Harmony = new(PluginGuid);
@@ -279,11 +279,11 @@ namespace WEFreeCamera
 
     }
     //Disabling the camera during scene switch
-    [HarmonyPatch(typeof(DNDIEGNJOKN))]
-    public static class DNDIEGNJOKN_Patch
+    [HarmonyPatch(typeof(JJDCNALMPCI))]
+    public static class JJDCNALMPCI_Patch
     {
         [HarmonyPrefix]
-        [HarmonyPatch(nameof(DNDIEGNJOKN.KGAMHBKDPCB))]
+        [HarmonyPatch(nameof(JJDCNALMPCI.NCIBLEAKGFH))]
         public static void Prefix()
         {
             if (FreeCameraPlugin.inFreeCamMode)
@@ -293,17 +293,17 @@ namespace WEFreeCamera
         }
     }
     //Patching character movement controls
-    [HarmonyPatch(typeof(KDOHFMKNHOB), nameof(KDOHFMKNHOB.CLPAMGDJAKN))]
-    public static class KDOHFMKNHOB_Patch
+    [HarmonyPatch(typeof(IMBAMKCPLIF), nameof(IMBAMKCPLIF.JIBIMGKLDHI))]
+    public static class IMBAMKCPLIF_Patch
     {
         [HarmonyPrefix]
-        public static bool Prefix(KDOHFMKNHOB __instance, ref float __result)
+        public static bool Prefix(IMBAMKCPLIF __instance, ref float __result)
         {
             if (!FreeCameraPlugin.inFreeCamMode)
                 return true;
             else
             {
-                __result = FreeCameraPlugin.ourCamera.transform.eulerAngles.y + Mathf.Atan2(__instance.IKGCLCIAOOL, __instance.ONCJKLOEGEF) * 57.29578f;
+                __result = FreeCameraPlugin.ourCamera.transform.eulerAngles.y + Mathf.Atan2(__instance.FHCIFKEGOOH, __instance.PPMGGOHBOLM) * 57.29578f;
                 return false;
             }
         }
