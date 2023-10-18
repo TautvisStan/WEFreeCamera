@@ -15,7 +15,7 @@ namespace WEFreeCamera
     {
         public const string PluginGuid = "GeeEM.WrestlingEmpire.WEFreeCamera";
         public const string PluginName = "WEFreeCamera";
-        public const string PluginVer = "1.3.1";
+        public const string PluginVer = "1.3.2";
 
         internal static ManualLogSource Log;
         internal readonly static Harmony Harmony = new(PluginGuid);
@@ -279,11 +279,11 @@ namespace WEFreeCamera
 
     }
     //Disabling the camera during scene switch
-    [HarmonyPatch(typeof(JJDCNALMPCI))]
-    public static class JJDCNALMPCI_Patch
+    [HarmonyPatch(typeof(LIPNHOMGGHF))]
+    public static class LIPNHOMGGHF_Patch
     {
         [HarmonyPrefix]
-        [HarmonyPatch(nameof(JJDCNALMPCI.NCIBLEAKGFH))]
+        [HarmonyPatch(nameof(LIPNHOMGGHF.PMIIOCMHEAE))]
         public static void Prefix()
         {
             if (FreeCameraPlugin.inFreeCamMode)
@@ -293,17 +293,17 @@ namespace WEFreeCamera
         }
     }
     //Patching character movement controls
-    [HarmonyPatch(typeof(IMBAMKCPLIF), nameof(IMBAMKCPLIF.JIBIMGKLDHI))]
-    public static class IMBAMKCPLIF_Patch
+    [HarmonyPatch(typeof(BJMGCKGNCHO), nameof(BJMGCKGNCHO.IOKJAPIEGLB))]
+    public static class BJMGCKGNCHO_Patch
     {
         [HarmonyPrefix]
-        public static bool Prefix(IMBAMKCPLIF __instance, ref float __result)
+        public static bool Prefix(BJMGCKGNCHO __instance, ref float __result)
         {
             if (!FreeCameraPlugin.inFreeCamMode)
                 return true;
             else
             {
-                __result = FreeCameraPlugin.ourCamera.transform.eulerAngles.y + Mathf.Atan2(__instance.FHCIFKEGOOH, __instance.PPMGGOHBOLM) * 57.29578f;
+                __result = FreeCameraPlugin.ourCamera.transform.eulerAngles.y + Mathf.Atan2(__instance.IMBKMMOCBBF, __instance.PNLIFOBMMGG) * 57.29578f;
                 return false;
             }
         }
