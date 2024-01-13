@@ -1,4 +1,4 @@
-//Game version: 1.59
+//Game version: 1.62
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
@@ -6,6 +6,7 @@ using System.IO;
 using UnityEngine;
 using BepInEx.Configuration;
 using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 
 namespace WEFreeCamera
 {
@@ -15,7 +16,7 @@ namespace WEFreeCamera
     {
         public const string PluginGuid = "GeeEM.WrestlingEmpire.WEFreeCamera";
         public const string PluginName = "WEFreeCamera";
-        public const string PluginVer = "1.3.2";
+        public const string PluginVer = "1.3.3";
 
         internal static ManualLogSource Log;
         internal readonly static Harmony Harmony = new(PluginGuid);
@@ -52,10 +53,16 @@ namespace WEFreeCamera
         public static ConfigEntry<Quaternion>[] savedRotations = new ConfigEntry<Quaternion>[10];
         public static ConfigEntry<float>[] savedFoVs = new ConfigEntry<float>[10];
 
+        public static ConfigEntry<bool> InGameOnly;
+
         private void Awake()
         {
             FreeCameraPlugin.Log = base.Logger;
             PluginPath = Path.GetDirectoryName(Info.Location);
+            InGameOnly = Config.Bind("Camera",
+                 "InGameOnly",
+                 true,
+                 "If true, freecam will be disabled in menus and other non-gameplay places");
             configCameraMoveSpeed = Config.Bind("Camera",
                  "CameraSpeed",
                  (double)10,
@@ -150,11 +157,14 @@ namespace WEFreeCamera
         }
         internal void BeginFreecam()
         {
-            inFreeCamMode = true;
+            if (InGameOnly.Value == false || (InGameOnly.Value == true && (SceneManager.GetActiveScene().name == "Game" || SceneManager.GetActiveScene().name == "Match_Setup")))
+            {
+                inFreeCamMode = true;
 
-            previousMousePosition = Input.mousePosition;
-            CacheMainCamera();
-            SetupFreeCamera();
+                previousMousePosition = Input.mousePosition;
+                CacheMainCamera();
+                SetupFreeCamera();
+            }
         }
         static void CacheMainCamera()
         {
