@@ -1,4 +1,4 @@
-//Game version: 1.62
+//Game version: 1.65
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
@@ -7,6 +7,7 @@ using UnityEngine;
 using BepInEx.Configuration;
 using System.Collections.Generic;
 using UnityEngine.SceneManagement;
+using UnityEngine.Rendering.PostProcessing;
 
 namespace WEFreeCamera
 {
@@ -16,7 +17,7 @@ namespace WEFreeCamera
     {
         public const string PluginGuid = "GeeEM.WrestlingEmpire.WEFreeCamera";
         public const string PluginName = "WEFreeCamera";
-        public const string PluginVer = "1.3.3";
+        public const string PluginVer = "1.3.4";
 
         internal static ManualLogSource Log;
         internal readonly static Harmony Harmony = new(PluginGuid);
@@ -191,6 +192,11 @@ namespace WEFreeCamera
                     ourCamera.gameObject.tag = "MainCamera";
                     GameObject.DontDestroyOnLoad(ourCamera.gameObject);
                     ourCamera.gameObject.hideFlags = HideFlags.HideAndDontSave;
+                    PostProcessVolume postProc = new PostProcessVolume();
+                    if(ourCamera.gameObject.TryGetComponent<PostProcessVolume>(out postProc))
+                    {
+                        postProc.enabled = false;
+                    }
                 }
                 else
                 {

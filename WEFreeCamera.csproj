@@ -34,6 +34,9 @@
       <Reference Include="Assembly-CSharp">
         <HintPath>..\..\Assembly-CSharp_public.dll</HintPath>
       </Reference>
+      <Reference Include="Unity.Postprocessing.Runtime">
+        <HintPath>Unity.Postprocessing.Runtime.dll</HintPath>
+      </Reference>
     </ItemGroup>
 
 </Project>
